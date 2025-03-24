@@ -1,28 +1,52 @@
+import os
+import time
+import random
+from flask import Flask, render_template, request
 import qrcode
-from qrcode.image.styledpil import StyledPilImage
 
-qr = qrcode.QRCode(
-    version=1,
-    error_correction=qrcode.constants.ERROR_CORRECT_H,
-    box_size=10,
-    border=2,
-)
+app = Flask(__name__)
 
-url = input('insert URL or text: ')
-user_have_logo = input("want to add a logo to your QR code? (Y/N): ").strip().lower()
-qr.add_data(url)
-qr.make(fit=True)
+# Pastikan folder 'static' ada
+if not os.path.exists('static'):
+    os.makedirs('static')
 
-if user_have_logo == 'y':
-    logo = input("Insert your logo file name: ")
-    qr_img = qr.make_image(image_factory=StyledPilImage, embedded_image_path=logo)
-else:
-    custom_color = input("Want to use custom colors on your QR code? (Y/N): ").strip().lower()
-    if custom_color == 'y':
-        foreground = input("foreground color: ")
-        background = input("background color: ")
-        qr_img = qr.make_image(fill_color=foreground, back_color=background)
-    else:
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    """
+    Satu route saja:
+    - GET  -> menampilkan form awal.
+    - POST -> memproses pembuatan QR Code, menampilkan preview di halaman yang sama.
+    """
+    file_name = None  # Variabel untuk menampung nama file QR Code
+
+    if request.method == 'POST':
+        # Ambil data teks/URL dari form
+        data = request.form.get('data', '')
+
+        # Buat objek QR Code
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+
+        # Generate gambar QR (hitam-putih)
         qr_img = qr.make_image(fill_color="black", back_color="white")
 
-qr_img.save('qrcode.png')
+        # Buat nama file unik (pakai timestamp + random)
+        unique_suffix = f"{int(time.time())}_{random.randint(1000,9999)}"
+        file_name = f"qrcode_{unique_suffix}.png"
+        file_path = os.path.join('static', file_name)
+
+        # Simpan QR Code
+        qr_img.save(file_path)
+
+    # Render template: jika file_name tidak None, berarti kita baru saja generate QR
+    return render_template('index.html', file_name=file_name)
+
+if __name__ == '__main__':
+    # Jalankan server
+    app.run(debug=True)
